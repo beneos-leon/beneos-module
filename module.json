@@ -22,46 +22,61 @@
     {
       "name": "beneos_module_actors",
       "label": "Beneos Tokens",
-      "path": "packs/beneos_module_actors.db",
+      "path": "packs/beneos_module_actors",
       "system": "dnd5e",
       "type": "Actor",
-      "private": false,
-      "flags": {}
+      "flags": {},
+      "ownership": {
+        "PLAYER": "OBSERVER",
+        "ASSISTANT": "OWNER"
+      }
     },
     {
       "name": "beneos_module_actors_pf2",
       "label": "Beneos Tokens - PF2",
-      "path": "packs/beneos_module_actors_pf2.db",
+      "path": "packs/beneos_module_actors_pf2",
       "system": "pf2e",
       "type": "Actor",
-      "private": false,
-      "flags": {}
+      "flags": {},
+      "ownership": {
+        "PLAYER": "OBSERVER",
+        "ASSISTANT": "OWNER"
+      }
     },
     {
       "name": "beneos_module_items",
       "label": "Beneos Module Items",
-      "path": "packs/beneos_module_items.db",
+      "path": "packs/beneos_module_items",
       "system": "dnd5e",
       "type": "Item",
-      "private": false,
-      "flags": {}
+      "flags": {},
+      "ownership": {
+        "PLAYER": "OBSERVER",
+        "ASSISTANT": "OWNER"
+      }
     },
     {
       "name": "beneos_module_spells",
       "label": "Beneos Module Spells",
-      "path": "packs/beneos_module_spells.db",
+      "path": "packs/beneos_module_spells",
       "system": "dnd5e",
       "type": "Item",
-      "private": false,
-      "flags": {}
+      "flags": {},
+      "ownership": {
+        "PLAYER": "OBSERVER",
+        "ASSISTANT": "OWNER"
+      }
     },
     {
       "name": "beneos_module_journal",
       "label": "Beneos Module Journals",
-      "path": "packs/beneos_module_journal.db",
+      "path": "packs/beneos_module_journal",
       "type": "JournalEntry",
-      "private": false,
-      "flags": {}
+      "flags": {},
+      "ownership": {
+        "PLAYER": "OBSERVER",
+        "ASSISTANT": "OWNER"
+      }
     }
   ],
   "id": "beneos-module",
@@ -73,61 +88,61 @@
   ],
   "relationships": {
     "requires": [
-	  {
+      {
         "id": "moulinette-core",
         "type": "module",
         "manifest": "https://raw.githubusercontent.com/SvenWerlen/moulinette-core/master/module.json",
         "compatibility": {}
       },
-	  {
+      {
         "id": "tokenmagic",
         "type": "module",
         "manifest": "https://raw.githubusercontent.com/Feu-Secret/Tokenmagic/master/tokenmagic/module.json",
         "compatibility": {}
       },
-	  {
+      {
         "id": "moulinette-scenes",
         "type": "module",
         "manifest": "https://raw.githubusercontent.com/SvenWerlen/moulinette-scenes/main/module.json",
         "compatibility": {}
       },
-	  {
+      {
         "id": "multilevel-tokens",
         "type": "module",
         "manifest": "https://raw.githubusercontent.com/grandseiken/foundryvtt-multilevel-tokens/master/module.json",
         "compatibility": {}
       },
-	  {
+      {
         "id": "fxmaster",
         "type": "module",
         "manifest": "https://github.com/ghost-fvtt/fxmaster/releases/latest/download/module.json",
         "compatibility": {}
       },
-	  {
+      {
         "id": "monks-active-tiles",
         "type": "module",
         "manifest": "https://github.com/ironmonk88/monks-active-tiles/releases/latest/download/module.json",
         "compatibility": {}
       },
-	  {
+      {
         "id": "poi-teleport",
         "type": "module",
         "manifest": "https://github.com/zeel01/poi-teleport/releases/latest/download/module.json",
         "compatibility": {}
       },
-	  {
+      {
         "id": "scene-packer",
         "type": "module",
         "manifest": "https://github.com/League-of-Foundry-Developers/scene-packer/releases/latest/download/module.json",
         "compatibility": {}
       },
-	  {
+      {
         "id": "LockView",
         "type": "module",
         "manifest": "https://github.com/MaterialFoundry/LockView/releases/latest/download/module.json",
         "compatibility": {}
       },
-	  {
+      {
         "id": "lib-wrapper",
         "type": "module",
         "manifest": "https://github.com/ruipin/fvtt-lib-wrapper/releases/latest/download/module.json",
