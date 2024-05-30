@@ -3,6 +3,18 @@
 All notable changes to this module will be documented in this file.
 
 ## Updates
+
+### 12.0.3 # 2024-05-29
+- The search engine works properly again
+
+### 12.0.2 # 2024-05-27
+- Fixed An JS issue that changed the behaviour of the "this" keyword. This should lead to a more consistent The Forge integration
+
+### 12.0.1 # 2024-05-23
+- Added V12 compatibility for the core module (not the dependencies!)
+- Added solutions to prevent the "The token key see seems wrong" from appearing this often
+- Added compatibility with the Rideable module
+
 ### 11.0.11 # 2024-03-06
 - The Beneos Module does not affect PF2E Sheets anymore
 - We fixed a bug that prevented the journal icon from appearing
