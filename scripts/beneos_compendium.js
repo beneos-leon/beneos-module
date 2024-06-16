@@ -11,51 +11,79 @@ export class BeneosCompendiumReset extends FormApplication {
     if (pack) {
       await pack.getIndex()
       await pack.configure({ locked: false })
-  
-      for (let item of pack.index.contents) {
-        let doc = await pack.getDocument(item._id)
-        await doc.delete()
-      }  
+
+      pack.documentClass.deleteDocuments([], { deleteAll: true, pack: comp });
     }
+    $(".beneos-meter-delete").attr("value", 100)
     //console.log("PACK", pack)
   }
 
   /********************************************************************************** */
   async performReset() {
-    ui.notifications.info("BeneosModule : Cleanup of compendiums has started....")
+    ui.notifications.info("BeneosModule : Compendium building is starting, check chat message....");
 
     await this.deleteCompendiumContent("beneos-module.beneos_module_journal")
+    BeneosCompendiumManager.cleanImportErrors()
 
     if (game.system.id == "pf2e") {
-      await this.deleteCompendiumContent("beneos-module.beneos_module_actors_pf2")
-      ui.notifications.info("BeneosModule : PF2 - Cleanup of compendiums finished.")
-      BeneosCompendiumManager.buildDynamicCompendiumsPF2()
-    } else {
       let chatData = {
         user: game.user.id,
         rollMode: game.settings.get("core", "rollMode"),
         whisper: ChatMessage.getWhisperRecipients('GM'),
-        content: `<div><strong>BeneosModule</strong> : Import process started... Please wait end message</div`
+        content: `<div><strong>BeneosModule</strong> : Import process started... Please wait end message and <strong>do not refresh</strong> your browser.</div>` +
+          `<div><strong>1/2 - Cleanup : </strong><span class="beneos-chat-delete-info"></span></div>`
+      }
+      ChatMessage.create(chatData);
+      await this.deleteCompendiumContent("beneos-module.beneos_module_actors_pf2")
+      $(".beneos-chat-delete-info").html("Cleanup finished")
+
+      ui.notifications.info("BeneosModule : PF2 - Cleanup of compendiums finished.")
+      chatData.content = `<div><strong>BeneosModule</strong> : Cleanup finished, importing actors</div>` +
+      `<div><strong>2/2 - Actors : </strong><meter class="beneos-meter-actor" min="0" max="100" value="0">100%</meter>&nbsp;<span class="beneos-chat-actor-info"></span></div>`
+      ChatMessage.create(chatData);
+      BeneosCompendiumManager.buildDynamicCompendiumsPF2()
+      $(".beneos-chat-actor-info").html("Actors import done ")
+      $(".beneos-meter-actor").hide()
+
+    } else {
+
+      let chatData = {
+        user: game.user.id,
+        rollMode: game.settings.get("core", "rollMode"),
+        whisper: ChatMessage.getWhisperRecipients('GM'),
+        content: `<div><strong>BeneosModule</strong> : Import process started... Please wait end message and <strong>do not refresh</strong> your browser.</div>` +
+          `<div><strong>1/4 - Cleanup : </strong><meter class="beneos-meter-delete" min="0" max="100" value="0">100%</meter>&nbsp;<span class="beneos-chat-delete-info"></span></div>`
       }
       ChatMessage.create(chatData);
       await this.deleteCompendiumContent("beneos-module.beneos_module_actors")
       await this.deleteCompendiumContent("beneos-module.beneos_module_items")
       await this.deleteCompendiumContent("beneos-module.beneos_module_spells")
-      chatData.content = `<div><strong>BeneosModule</strong> : Cleanup of compendiums finished, import is starting</div`
+      $(".beneos-chat-delete-info").html("Cleanup finished")
+      $(".beneos-meter-delete").hide()
+
+      chatData.content = `<div><strong>BeneosModule</strong> : Importing actors</div>` +
+        `<div><strong>2/4 - Actors : </strong><meter class="beneos-meter-actor" min="0" max="100" value="0">100%</meter>&nbsp;<span class="beneos-chat-actor-info"></span></div>`
       ChatMessage.create(chatData);
-      
       await BeneosCompendiumManager.buildDynamicCompendiumsTokensDD5()
-      chatData.content = `<div><strong>BeneosModule</strong> : Actors compendium done.</div`
+      $(".beneos-chat-actor-info").html("Actors import done ")
+      $(".beneos-meter-actor").hide()
+
+      chatData.content = `<div><strong>BeneosModule</strong> : Importing spells</div>` +
+        `<div><strong>3/4 - Spells : </strong><meter class="beneos-meter-spell" min="0" max="100" value="0">100%</meter>&nbsp;<span class="beneos-chat-spell-info"></span></div>`
       ChatMessage.create(chatData);
-      
       await BeneosCompendiumManager.buildDynamicCompendiumsSpellsDD5()
-      chatData.content = `<div><strong>BeneosModule</strong> : Spells compendium done.</div`
+      $(".beneos-chat-spell-info").html("Spells import done ")
+      $(".beneos-meter-spell").hide()
+
+      chatData.content = `<div><strong>BeneosModule</strong> : Importing items</div>` +
+        `<div><strong>4/4 - Items : </strong><meter class="beneos-meter-item" min="0" max="100" value="0">100%</meter>&nbsp;<span class="beneos-chat-item-info"></span></div>`
       ChatMessage.create(chatData);
-      
       await BeneosCompendiumManager.buildDynamicCompendiumsItemsDD5()
       chatData.content = `<div><strong>BeneosModule</strong> : Items compendium done.<br><strong>All compendiums created, import finished !!</strong></div`
       ChatMessage.create(chatData)
-      
+      $(".beneos-chat-item-info").html("Items import done ")
+      $(".beneos-meter-item").hide()
+
       // Reload the settings, as they have been updated during the import
       BeneosUtility.reloadInternalSettings()
 
@@ -65,8 +93,10 @@ export class BeneosCompendiumReset extends FormApplication {
         let newS = new BeneosSearchEngineLauncher
         newS.render(true)
       }
-      
+
     }
+    BeneosCompendiumManager.showImportErrors()
+
   }
 
   /********************************************************************************** */
@@ -79,7 +109,26 @@ export class BeneosCompendiumReset extends FormApplication {
 export class BeneosCompendiumManager {
 
   /********************************************************************************** */
+  static cleanImportErrors() {
+    this.importErrors = []; // clean local error cache
+  }
+  static async showImportErrors() {
+    if (this.importErrors.length > 0) {
+      console.log("Global import errors : ", this.importErrors)
+      let content = await renderTemplate(`modules/beneos-module/templates/chat-import-error.html`, { errors: this.importErrors })
+      let chatData = {
+        user: game.user.id,
+        rollMode: game.settings.get("core", "rollMode"),
+        whisper: ChatMessage.getWhisperRecipients('GM'),
+        content: content
+      }
+      ChatMessage.create(chatData);
+    }
+  }
+
+  /********************************************************************************** */
   static async buildDynamicCompendiumsPF2() {
+
     ui.notifications.info("BeneosModule : PF2 Compendium building .... Please wait !")
 
     BeneosUtility.resetTokenData()
@@ -97,6 +146,8 @@ export class BeneosCompendiumManager {
 
     // Parse subfolder
     let rootFolder = await FilePicker.browse("data", tokenDataFolder)
+    let max = rootFolder.dirs.length
+    let count = 0
     // Loop thru folders
     for (let subFolder of rootFolder.dirs) {
       let res = subFolder.match("/(\\d*)_")
@@ -157,9 +208,12 @@ export class BeneosCompendiumManager {
             if (records.prototypeToken) {
               pf2Record.prototypeToken = { texture: { src: this.replaceImgPath(dataFolder.target, records.prototypeToken.texture.src, true) } }
             }
-            let actor = await Actor.create(pf2Record, { temporary: true })
+            //let actor = await Actor.create(pf2Record, { temporary: true })
+            let actor = new Actor.implementation(pf2Record)
             let imported = await actorPack.importDocument(actor)
-            console.log("ACTOR IMPO", imported)
+            $(".beneos-chat-actor-info").html(actor.name)
+            $(".beneos-meter-actor").attr("value", Math.round((count++ / max) * 100));
+            //console.log("ACTOR IMPO", imported)
             currentName = actor.name
             currentId = imported.id
           }
@@ -179,7 +233,8 @@ export class BeneosCompendiumManager {
               }
             }
             records.pages = newPages
-            let journal = await JournalEntry.create(records, { temporary: true })
+            //let journal = await JournalEntry.create(records, { temporary: true })
+            let journal = new JournalEntry(records)
             journalPack.importDocument(journal)
           }
         }
@@ -205,20 +260,20 @@ export class BeneosCompendiumManager {
   /********************************************************************************** */
   static async showNewItems(itemName, newData, previousData, compendium) {
     let diffData = [] // Detect new import data
-    for(let key in newData) {
+    for (let key in newData) {
       if (!previousData[key]) {
         diffData.push(foundry.utils.duplicate(newData[key]))
       }
     }
     let content = itemName + " : No new content detected."
     if (diffData.length > 0) {
-      content = await renderTemplate(`modules/beneos-module/templates/chat-new-compendium-data.html`, {itemList: diffData, itemName, compendium} )
-    } 
+      content = await renderTemplate(`modules/beneos-module/templates/chat-new-compendium-data.html`, { itemList: diffData, itemName, compendium })
+    }
     let chatData = {
       user: game.user.id,
       rollMode: game.settings.get("core", "rollMode"),
       whisper: ChatMessage.getWhisperRecipients('GM'),
-      content: content 
+      content: content
     }
     ChatMessage.create(chatData);
   }
@@ -229,7 +284,7 @@ export class BeneosCompendiumManager {
     ui.notifications.info("BeneosModule : Compendium building .... Please wait !")
 
     BeneosUtility.resetTokenData()
-    
+
     let tokenDataFolder = BeneosUtility.getBasePath() + BeneosUtility.getBeneosTokenDataPath()
     let rootFolder = await FilePicker.browse("data", tokenDataFolder)
     if (!rootFolder) {
@@ -252,7 +307,9 @@ export class BeneosCompendiumManager {
 
     // Parse subfolder
     // Move above : let rootFolder = await FilePicker.browse("data", tokenDataFolder)
-    console.log("ROOT", rootFolder)
+    console.log("ROOT", rootFolder.dirs.length)
+    let max = rootFolder.dirs.length
+    let count = 0
     for (let subFolder of rootFolder.dirs) {
       console.log("SUBFOLDER", subFolder)
       let res = subFolder.match("/(\\d*)_")
@@ -280,9 +337,12 @@ export class BeneosCompendiumManager {
             if (!key.match("000_")) {
               ui.notifications.warn("Warning ! Unable to fetch config for token " + key)
             }
+            continue;
           }
         } catch (error) {
+          this.importErrors.push("Error in parsing JSON for token " + key)
           console.log("Warning ! Error in parsing JSON " + error, JSONFilePath)
+          continue;
         }
 
         let dataFolder = await FilePicker.browse("data", subFolder)
@@ -307,36 +367,75 @@ export class BeneosCompendiumManager {
             imgVideoList.push(filename)
           }
           if (filename.toLowerCase().includes("actor_") && filename.toLowerCase().includes(".json")) {
-            let r = await fetch(filename)
-            let records = await r.json()
-            // Replace common v9/v10 stuff
-            records.img = this.replaceImgPath(dataFolder.target, records.img, false)
-            this.replaceItemsPath(records)
-            //console.log(">>>>>>>>>>>>>> REC", records, actor)
-            if (records.prototypeToken) {
-              records.prototypeToken.texture.src = this.replaceImgPath(dataFolder.target, records.prototypeToken.texture.src, true)
-            } else {
-              records.token.img = this.replaceImgPath(dataFolder.target, records.token.img, true)
+            let r, records
+            try {
+              r = await fetch(filename)
+              records = await r.json()
             }
-            let actor = await Actor.create(records, { temporary: true })
-            let imported = await actorPack.importDocument(actor)
-            //console.log("ACTOR IMPO", imported)
-            currentId = imported.id
-            currentName = actor.name
+            catch {
+              this.importErrors.push("Error in fetching file " + filename)
+              console.log("Error in fetching file", filename);
+              continue;
+            }
+            if (r && records) {
+              // Replace common v9/v10 stuff
+              records.img = this.replaceImgPath(dataFolder.target, records.img, false)
+              this.replaceItemsPath(records)
+              //console.log(">>>>>>>>>>>>>> REC", records, actor)
+              if (records.prototypeToken) {
+                records.prototypeToken.texture.src = this.replaceImgPath(dataFolder.target, records.prototypeToken.texture.src, true)
+              } else {
+                records.token.img = this.replaceImgPath(dataFolder.target, records.token.img, true)
+              }
+              // Foundry v12
+              // let actor = await Actor.create(records, { temporary: true })
+              try {
+                let actor = new game.dnd5e.documents.Actor5e(records);
+                if (actor) {
+                  let imported = await actorPack.importDocument(actor);
+                  $(".beneos-chat-actor-info").html(actor.name)
+                  $(".beneos-meter-actor").attr("value", Math.round((count++ / max) * 100));
+                  //console.log("ACTOR IMPO", imported)
+                  currentId = imported.id
+                  currentName = actor.name
+                } else {
+                  this.importErrors.push("Error in creating actor " + records.name)
+                  console.log("Error in creating actor", records.name);
+                }
+              } catch {
+                this.importErrors.push("Error in creating actor " + records.name)
+                console.log("Error in creating actor", records.name);
+              }
+            }
           }
           if (filename.toLowerCase().includes("journal_") && filename.toLowerCase().includes(".json")) {
-            let r = await fetch(filename)
-            let records = await r.json()
-            //console.log("JOURNAL DATA", records)
-            if (!game.release.generation || game.release.generation < 10) {
-              records.img = this.replaceImgPath(dataFolder.target, records.img, false)
-              records.content = this.replaceImgPathHTMLContent(dataFolder.target, records.content)
+            let r, records
+            try {
+              r = await fetch(filename)
+              records = await r.json()
+            } catch {
+              this.importErrors.push("Error in fetching file " + filename)
+              console.log("Error in fetching file", filename);
+              continue;
             }
-            let journal = await JournalEntry.create(records, { temporary: true })
-            journalPack.importDocument(journal)
+            if (r && records) {
+              //console.log("JOURNAL DATA", records)
+              if (!game.release.generation || game.release.generation < 10) {
+                records.img = this.replaceImgPath(dataFolder.target, records.img, false)
+                records.content = this.replaceImgPathHTMLContent(dataFolder.target, records.content)
+              }
+              try {
+                //let journal = await JournalEntry.create(records, { temporary: true })
+                let journal = new JournalEntry(records);
+                journalPack.importDocument(journal);
+              } catch {
+                this.importErrors.push("Error in creating journal " + records.name)
+                console.log("Error in creating journal", records.name);
+              }
+            }
           }
         }
-        if (key && BeneosUtility.beneosTokens[key]) {
+        if (key && BeneosUtility.beneosTokens[key] && currentId) {
           //console.log("Final IDLE list : ", idleList)
           BeneosUtility.beneosTokens[key].idleList = foundry.utils.duplicate(idleList)
           BeneosUtility.beneosTokens[key].imgVideoList = foundry.utils.duplicate(imgVideoList)
@@ -349,14 +448,15 @@ export class BeneosCompendiumManager {
 
     ui.notifications.info("BeneosModule : Compendium building finished !")
     let previousData = {}
-    try  {
+    try {
       previousData = JSON.parse(game.settings.get(BeneosUtility.moduleID(), 'beneos-json-tokenconfig') || {}) // Get the previous config !
     }
     catch {
+      previousData = {}
       console.log("Error in parsing JSON for Tokens previousData, warning only all content has been re-imported")
     }
     await this.showNewItems("Actors", BeneosUtility.beneosTokens, previousData, "Compendium.beneos-module.beneos_module_actors.Actor")
-    
+
     let toSave = JSON.stringify(BeneosUtility.beneosTokens)
     console.log("Saving data :", toSave)
     await game.settings.set(BeneosUtility.moduleID(), 'beneos-json-tokenconfig', toSave) // Save the token config !
@@ -380,6 +480,8 @@ export class BeneosCompendiumManager {
 
     // Parse subfolder
     let rootFolder = await FilePicker.browse("data", tokenDataFolder)
+    let max = rootFolder.dirs.length
+    let count = 0
     console.log("ROOT", rootFolder)
     for (let subFolder of rootFolder.dirs) {
       console.log("SUBFOLDER", subFolder)
@@ -390,12 +492,25 @@ export class BeneosCompendiumManager {
         // And root folder to get json definitions and additionnel idle tokens
         for (let filename of dataFolder.files) {
           if (filename.toLowerCase().includes(".json")) {
-            let r = await fetch(filename)
-            let records = await r.json()
-            let spell = await Item.create(records, { temporary: true })
-            let iSpell = await spellPack.importDocument(spell)
-            let key = subFolder.replace(/\/$/, "").split("/").pop();
-            BeneosUtility.beneosSpells[key] = {spellId: iSpell.id, id: iSpell.id} 
+            let r, records
+            try {
+              r = await fetch(filename)
+              records = await r.json()
+            }
+            catch {
+              this.importErrors.push("Error in fetching file " + filename)
+              console.log("Error in fetching file", filename);
+              continue;
+            }
+            if (r && records) {
+              //let spell = await Item.create(records, { temporary: true })
+              let spell = new game.dnd5e.documents.Item5e(records);
+              $(".beneos-chat-spell-info").html(spell.name)
+              $(".beneos-meter-spell").attr("value", Math.round((count++ / max) * 100));
+              let iSpell = await spellPack.importDocument(spell)
+              let key = subFolder.replace(/\/$/, "").split("/").pop();
+              BeneosUtility.beneosSpells[key] = { spellId: iSpell.id, id: iSpell.id }
+            }
           }
         }
       }
@@ -409,9 +524,10 @@ export class BeneosCompendiumManager {
       previousData = JSON.parse(game.settings.get(BeneosUtility.moduleID(), 'beneos-json-spellconfig') || {}) // Get the previous config !
     }
     catch {
+      previousData = {}
       console.log("Error in parsing JSON for Spells previousData, warning only all content has been re-imported")
     }
-    await this.showNewItems("Spells", BeneosUtility.beneosSpells, previousData, "Compendium.beneos-module.beneos_module_spells.Item" )
+    await this.showNewItems("Spells", BeneosUtility.beneosSpells, previousData, "Compendium.beneos-module.beneos_module_spells.Item")
 
     let toSave = JSON.stringify(BeneosUtility.beneosSpells)
     //console.log("Saving data :", toSave)
@@ -419,7 +535,7 @@ export class BeneosCompendiumManager {
 
   }
 
-    /********************************************************************************** */
+  /********************************************************************************** */
   // Main root importer/builder function
   static async buildDynamicCompendiumsItemsDD5() {
     ui.notifications.info("BeneosModule : Items Compendium building .... Please wait !")
@@ -434,6 +550,8 @@ export class BeneosCompendiumManager {
 
     // Parse subfolder
     let rootFolder = await FilePicker.browse("data", itemDataFolder)
+    let max = rootFolder.dirs.length
+    let count = 0
     //console.log("ROOT", rootFolder)
     for (let subFolder of rootFolder.dirs) {
       //console.log("SUBFOLDER", subFolder)
@@ -444,12 +562,25 @@ export class BeneosCompendiumManager {
         // And root folder to get json definitions and additionnel idle tokens
         for (let filename of dataFolder.files) {
           if (filename.toLowerCase().includes(".json")) {
-            let r = await fetch(filename)
-            let records = await r.json()
-            let item = await Item.create(records, { temporary: true })
-            let iItem = await itemPack.importDocument(item)
-            let key = subFolder.replace(/\/$/, "").split("/").pop();
-            BeneosUtility.beneosItems[key] = {itemId: iItem.id, id: iItem.id} 
+            let r, records
+            try {
+              r = await fetch(filename)
+              records = await r.json()
+            }
+            catch {
+              this.importErrors.push("Error in fetching file " + filename)
+              console.log("Error in fetching file", filename);
+              continue;
+            }
+            if (r && records) {
+              //let item = await Item.create(records, { temporary: true })
+              let item = new game.dnd5e.documents.Item5e(records);
+              $(".beneos-chat-item-info").html(item.name)
+              $(".beneos-meter-item").attr("value", Math.round((count++ / max) * 100));
+              let iItem = await itemPack.importDocument(item)
+              let key = subFolder.replace(/\/$/, "").split("/").pop();
+              BeneosUtility.beneosItems[key] = { itemId: iItem.id, id: iItem.id }
+            }
           }
         }
       }
@@ -458,13 +589,14 @@ export class BeneosCompendiumManager {
     ui.notifications.info("BeneosModule : Items Compendium building finished !")
     await itemPack.configure({ locked: true })
     let previousData = {}
-    try { 
+    try {
       previousData = JSON.parse(game.settings.get(BeneosUtility.moduleID(), 'beneos-json-itemconfig') || {}) // Get the previous config !
     }
     catch {
+      previousData = {}
       console.log("Error in parsing JSON for Items previousData, warning only all content has been re-imported")
     }
-    await this.showNewItems("Items", BeneosUtility.beneosItems, previousData, "Compendium.beneos-module.beneos_module_items.Item" )
+    await this.showNewItems("Items", BeneosUtility.beneosItems, previousData, "Compendium.beneos-module.beneos_module_items.Item")
 
     let toSave = JSON.stringify(BeneosUtility.beneosItems)
     //console.log("Saving data :", toSave)
